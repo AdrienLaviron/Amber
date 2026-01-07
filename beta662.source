@@ -1,0 +1,27 @@
+# cosima source file for GRB 140206A simulation
+
+Version         1
+Geometry        ./ViewSiPixelDetector.geo.setup
+
+# Physics list
+PhysicsListEM                        Livermore-Pol
+PhysicsListEMActivateFluorescence    true
+
+# Output formats. StoreScientific added (July 2010)
+StoreCalibrated                      true
+StoreScientific		     	     true 5
+StoreSimulationInfo                  true
+StoreSimulationInfoIonization        false
+DiscretizeHits                       true
+
+# Run parameters:
+Run ecalsim
+ecalsim.FileName         ecalsim
+#ecalsim.Time             1000
+ecalsim.NTriggers        10000
+
+ecalsim.Source beta
+beta.ParticleType   3
+beta.Beam           FarFieldPointSource 0. 0.
+beta.Spectrum       Linear 10 662
+beta.Flux           1000
