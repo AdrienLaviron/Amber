@@ -1,7 +1,7 @@
 # cosima source file for 137Cs source simulation
 
 Version         1
-Geometry        ./ViewSiPixelDetector.geo.setup
+Geometry        $PWD/simulations/ViewSiPixelDetector.geo.setup
 
 # Physics list
 PhysicsListEM                        Livermore-Pol
@@ -16,12 +16,13 @@ DiscretizeHits                       true
 
 # Run parameters:
 Run ecalsim
-ecalsim.FileName         Cs137
+ecalsim.FileName         simulations/Cs137
 #ecalsim.Time             1000
 ecalsim.NTriggers        10000
 
 ecalsim.Source beta
 beta.ParticleType   3
-beta.Beam           FarFieldPointSource 0. 0.
+beta.Beam           FarFieldPointSource 180. 0.
 beta.Spectrum       Linear 10 1200
 beta.Flux           1000
+

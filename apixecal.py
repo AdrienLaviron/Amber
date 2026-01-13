@@ -88,12 +88,12 @@ if __name__ == "__main__":
   geometry = getGeometry("simulations/ViewSiPixelDetector.geo.setup")
   geometry.ActivateNoising(False)
   # Read simulated data
-  df = gethits("simulations/ecalsim.inc2.id1.sim.gz", geometry)
+  df = gethits("simulations/Cs137.inc1.id1.sim.gz", geometry)
   #nobb = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)|(df.HTX<.9))]
   #wibb = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))]
   # Apply beta spectrum
   csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
-  df["WT"] = csbeta(df["MCE"])
+  df["WT"] = csbeta(df["MCE"]*1e-3)
   #addwt(df, csbeta)
 
 

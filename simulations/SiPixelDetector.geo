@@ -79,7 +79,7 @@ BusBar_2.Mother QuadChip
 // Dimenstion: 1.782 cm x 1.683 cm x 0.007 cm (=Measured depletion thickness for V3, can be changed)
 // Pixel size 0.0495 cm x 0.0495 cm x 0.007 cm
 // 36 x 34 pixels
-Constant DepletionDepth {ChipThickness} // assume full depletion here
+Constant DepletionDepth {ChipThickness}
 Constant ActiveAreaY 1.782
 Constant ActiveAreaX 1.683
 
