@@ -4,6 +4,18 @@ import matplotlib.pyplot as plt
 
 import ROOT as M
 
+# Class for modelizing beta spectrum (callable)
+class Spectrum:
+  def __init__(self, file):
+    self.data = pd.read_csv(file)
+    self.energies = self.data["Energy [MeV]"]
+    self.proba = self.data["Probability density [#/MeV/nt]"]
+
+  def __call__(self, E):
+    return np.interp(E, self.energies, self.proba)
+
+
+# MEGAlib data management functions
 def initroot():
   M.gSystem.Load("$MEGALIB/lib/libMEGAlib.so")
   G = M.MGlobal()
@@ -54,13 +66,13 @@ def gethits(fname, geometry, strategy="all"):
     elif strategy == "all":
       for i in range(nhits):
         add2dict(dfdict, gethitdata(Event.GetHTAt(i)), mce, nhits)
+    elif strategy == "single":
+      if nhits == 1: add2dict(dfdict, gethitdata(Event.GetHTAt(0)), mce, nhits)
     else:
       raise RuntimeError
   return pd.DataFrame(dfdict)
 
-def betasp(E):
-  pass#Do we even know that?
-
+# Add spectrum weights
 def addwt(df):
   """
   """

@@ -1,0 +1,2 @@
+Cs-137 beta spectrum downloaded from https://mirdsoft.org/products/MIRDspecs/MIRDspecs_HTMLs/Cs-137.htm; Spectra source:  ICRP Publication 107: Nuclear Decay Data for Dosimetric Calculations. Ann. ICRP 2008, 38 (3).
+Cs-137: see also https://www-nds.iaea.org/relnsd/vcharthtml/VChartHTML.html
