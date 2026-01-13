@@ -73,17 +73,29 @@ def gethits(fname, geometry, strategy="all"):
   return pd.DataFrame(dfdict)
 
 # Add spectrum weights
-def addwt(df):
+def addwt(df, spectrum):
   """
+  :param df: pandas dataframe
+  :param spectrum: callable
   """
-  df.addcol("wt")
+  df["WT"] = spectrum(df["MCE"])
+  return df
 
 
 if __name__ == "__main__":
+  # Init ROOT global variables
   initroot()
-  geometry = getGeometry("ViewSiPixelDetector.geo.setup")
+  # Get geometry
+  geometry = getGeometry("simulations/ViewSiPixelDetector.geo.setup")
   geometry.ActivateNoising(False)
-  df = gethits("ecalsim.inc2.id1.sim.gz", geometry)
-  nobb = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)|(df.HTX<.9))]
-  wibb = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))]
+  # Read simulated data
+  df = gethits("simulations/ecalsim.inc2.id1.sim.gz", geometry)
+  #nobb = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)|(df.HTX<.9))]
+  #wibb = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))]
+  # Apply beta spectrum
+  csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
+  addwt(df, csbeta)
+
+
+
 
