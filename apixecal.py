@@ -27,8 +27,7 @@ def getGeometry(GeometryName):
     print("Geometry " + GeometryName + " loaded!")
     return Geometry
   else:
-    print("Unable to load geometry " + GeometryName + " - Aborting!")
-    quit()
+    raise RuntimeError("Unable to load geometry " + GeometryName + " - Aborting!")
 
 def gethitdata(hit):
   """
@@ -73,13 +72,13 @@ def gethits(fname, geometry, strategy="all"):
   return pd.DataFrame(dfdict)
 
 # Add spectrum weights
-def addwt(df, spectrum):
-  """
-  :param df: pandas dataframe
-  :param spectrum: callable
-  """
-  df["WT"] = spectrum(df["MCE"])
-  return df
+#def addwt(df, spectrum):
+#  """
+#  :param df: pandas dataframe
+#  :param spectrum: callable
+#  """
+#  df["WT"] = spectrum(df["MCE"])
+#  return df
 
 
 if __name__ == "__main__":
@@ -94,7 +93,8 @@ if __name__ == "__main__":
   #wibb = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))]
   # Apply beta spectrum
   csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
-  addwt(df, csbeta)
+  df["WT"] = csbeta(df["MCE"])
+  #addwt(df, csbeta)
 
 
 
