@@ -1,7 +1,7 @@
 #import pathlib
 #import shutil
-#import os
-#import glob
+import os
+import glob
 import time
 import subprocess
 import argparse
@@ -31,15 +31,23 @@ def cgGeometry(depletion=0.01, bbthickness=0.005):
     f.write(f"Constant DepletionDepth {depletion}\n")
     f.write(f"Constant BBThickness {bbthickness}\n")
 
+def removewc(path):
+  for f in glob.glob(path):
+    os.remove(f)
+
 if __name__ == "__main__":
   parser = argparse.ArgumentParser("")
-  parser.add_argument("-s", "--sourcefile", required=True, help="Path to source file to run multiple times")
+  parser.add_argument("-s", "--sourcefile", help="Path to source file to run multiple times", default=None)
+  parser.add_argument("-c", "--clean", action="store_true", help="Clean temporary source files and simulation files")
   args = parser.parse_args()
-  for depth in (np.arange(2)+1)*0.001: # 10 micrometers to 200 micrometers
-    cgGeometry(depth)
-    tmpsrc = cgSimName(args.sourcefile, f"d{depth}")
-    subprocess.run(["cosima", tmpsrc])
-
+  if args.sourcefile is not None:
+    for depth in (np.arange(20)+1)*0.001: # 10 micrometers to 200 micrometers
+      cgGeometry(depth)
+      tmpsrc = cgSimName(args.sourcefile, f"d{depth}")
+      subprocess.run(["cosima", tmpsrc])
+  if args.clean:
+    removewc("tmp/*")
+    #removewc("simulations/*.sim.gz")
 
 
 

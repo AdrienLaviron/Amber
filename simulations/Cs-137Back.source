@@ -16,12 +16,12 @@ DiscretizeHits                        true
 
 # Run parameters:
 Run ecalsim
-ecalsim.FileName         simulations/Cs137
+ecalsim.FileName         simulations/Cs137Back
 ecalsim.NTriggers        30000
 
 ecalsim.Source      beta
 beta.ParticleType   3
-beta.Beam           FarFieldPointSource 0. 0.
+beta.Beam           FarFieldPointSource 180. 0.
 beta.Spectrum       Linear 10 1200
 beta.Flux           100
 
