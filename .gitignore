@@ -2,3 +2,4 @@ buildroot.txt
 *.sim
 *.sim.*
 *.swp
+tmp/

@@ -13,6 +13,8 @@ ShowSurroundingSphere True
 
 Include Materials.geo
 
+Include GeometricVariables.geo
+
 Include SiPixelDetector.geo
 Include SiPixelProperties.det
 

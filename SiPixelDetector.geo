@@ -48,7 +48,7 @@ Constant QCActivePitchX {DigitalPeriphery+QCPitchX+GuardringLeft}
 //  thickness estimated using the transmission of 31keV 133Ba line
 //  transmission estimated at ~ 350 counts / ~ 520 counts = 67%
 //  thickness should be revisited at some point
-Constant BBThickness 0.007  // 0.0045 from Adrien's transmission estimates
+//Constant BBThickness 0.007  // 0.0045 from Adrien's transmission estimates // now defined in GeometricVariables.geo
 Constant BBWidth 0.9 
 Constant BBOffset_1 0.928 
 Constant BBOffset_2 {BBWidth + BBOffset_1 + 1.076} 
@@ -79,7 +79,7 @@ BusBar_2.Mother QuadChip
 // Dimenstion: 1.782 cm x 1.683 cm x 0.007 cm (=Measured depletion thickness for V3, can be changed)
 // Pixel size 0.0495 cm x 0.0495 cm x 0.007 cm
 // 36 x 34 pixels
-Constant DepletionDepth {ChipThickness}
+//Constant DepletionDepth {ChipThickness} // Defined in GeometricVariables.geo
 Constant ActiveAreaY 1.782
 Constant ActiveAreaX 1.683
 
