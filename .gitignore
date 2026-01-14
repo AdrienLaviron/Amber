@@ -3,3 +3,4 @@ buildroot.txt
 *.sim.*
 *.swp
 tmp/
+data/

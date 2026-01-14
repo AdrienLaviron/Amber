@@ -1,6 +1,8 @@
 import numpy as np
+import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors
 
 import ROOT as M
 
@@ -71,29 +73,50 @@ def gethits(fname, geometry, strategy="all"):
       raise RuntimeError
   return pd.DataFrame(dfdict)
 
-# Add spectrum weights
-#def addwt(df, spectrum):
-#  """
-#  :param df: pandas dataframe
-#  :param spectrum: callable
-#  """
-#  df["WT"] = spectrum(df["MCE"])
-#  return df
 
-
-if __name__ == "__main__":
+if __name__ == "__main__" and False:
   # Init ROOT global variables
   initroot()
   # Get geometry
-  geometry = getGeometry("simulations/ViewSiPixelDetector.geo.setup")
+  geometry = getGeometry("ViewSiPixelDetector.geo.setup")
   geometry.ActivateNoising(False)
   # Read simulated data
-  df = gethits("simulations/Cs137.inc1.id1.sim.gz", geometry)
-  #nobb = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)|(df.HTX<.9))]
+  csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
+  data = []; depths = []
+  bins = np.arange(0, 1300, 20)
+  flist = glob.glob("simulations/Cs137_*.sim.gz")
+  cmap = plt.get_cmap('jet', 200)
+  for i, f in enumerate(flist):
+    depth = float(".".join(f.split("_d")[-1].split(".")[:2]))*1e4
+    print(i, f, depth)
+    depths.append(depth)
+    df = gethits(f, geometry)
+    #df = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)&(df.HTX<.9))] # no BusBar
+    df = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))] # With BusBar
+    df["WT"] = csbeta(df["MCE"]*1e-3)
+    data.append(df)
+    plt.hist(df.HTE, weights=df.WT, bins=bins, histtype='step', color=cmap(int(depth)))
+  print(depths)
+  norm = matplotlib.colors.Normalize(vmin=0,vmax=200)
+  sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+  sm.set_array([])
+  plt.colorbar(sm, ticks=np.arange(0, 251, 10), ax=plt.gca(), label="Depletion depth")
+  plt.xlabel("Deposited energy (keV)")
+  plt.ylabel("# Hits")
+  plt.grid("both", True); plt.show()
+
+ 
+if __name__ == "__main__" and True:
+  apix = pd.read_csv()
+
+
+
+  #df = gethits("simulations/Cs137.inc1.id1.sim.gz", geometry)
+  #nobb = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)&(df.HTX<.9))]
   #wibb = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))]
   # Apply beta spectrum
-  csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
-  df["WT"] = csbeta(df["MCE"]*1e-3)
+  #csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
+  #df["WT"] = csbeta(df["MCE"]*1e-3)
   #addwt(df, csbeta)
 
 
