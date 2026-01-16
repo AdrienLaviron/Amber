@@ -96,7 +96,7 @@ def gethits(fname, geometry, strategy="all"):
   return pd.DataFrame(dfdict)
 
 
-if __name__ == "__main__" and False:
+if __name__ == "__main__" and True:
   # Init ROOT global variables
   initroot()
   # Get geometry
@@ -118,43 +118,39 @@ if __name__ == "__main__" and False:
     df["WT"] = csbeta(df["MCE"]*1e-3)
     data.append(df)
     plt.hist(df.HTE, weights=df.WT, bins=bins, histtype='step', color=cmap(int(depth)))
+    np.save(f"cs137{depth}m.npy", np.vstack(df.HTE, df.WT))
   print(depths)
-  #np.save("", data[12].HTE)
   norm = matplotlib.colors.Normalize(vmin=0,vmax=200)
   sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
   sm.set_array([])
   plt.colorbar(sm, ticks=np.arange(0, 251, 10), ax=plt.gca(), label="Depletion depth")
   plt.xlabel("Deposited energy (keV)")
   plt.ylabel("# Hits")
-  plt.grid("both", True); plt.show()
+  plt.grid(True, "both"); plt.show()
 
 
 class Model:
 
-  def __init__(self, data, bins, nevts, spfun=oldbilinear, p0=[5/2,3775/2,19,-2328/2]):
+  def __init__(self, data, bins, spfun=oldbilinear, p0=[5/2,3775/2,19,-2328/2, 1013]):
     """
     :param data: np.array of dim 2xN (keV values, weights)
     :param bins: passed to np.histogram
+    :param spfun: spectral response function (keV -> ToT)
+    :param p0: parameters of spfun + number of events, initial guess of spectral fit
     """
     self.data, self.weights = data[0], data[1]
     self.spfun = spfun
-    self.renorm(nevts)
     self.pars = np.array(p0)
     self.bins = bins
     self.applyDE() # fills self.hist
 
-  def renorm(self, nevts):
-    """
-    Adjusts the sum of weights to the total number of events
-    :param nevts: goal number of events
-    """
-    self.weights = self.weights/self.weights.sum()*nevts
-
-  def applyDE(self):
+  def recomputeModel(self, pars):
     """
     Fill self.hist with the ToT model spectrum
     """
-    self.hist, self.bins = np.histogram(self.spfun(self.data, *self.pars), bins=self.bins, weights=self.weights)
+    self.weights *= pars[-1]/self.weights.sum()
+    self.pars = np.array(pars)
+    self.hist, self.bins = np.histogram(self.spfun(self.data, *self.pars[:-1]), bins=self.bins, weights=self.weights)
     self.xaxis = .5*(self.bins[:-1]+self.bins[1:])
 
   def __call__(self, x, *pars):
@@ -163,26 +159,44 @@ class Model:
     :returns: value of nearest bin center in ToT space
     """
     if np.any(self.pars != np.array(pars)):
-      #Parameters change, re-apply response function
-      self.pars = np.array(pars)
-      self.applyDE()
-    # return closest matching bin
-    return scipy.interpolate.interp1d(self.xaxis, self.hist, kind='nearest')(x)
+      self.recomputeModel(pars) #Parameters changed, re-apply response function
+    return scipy.interpolate.interp1d(self.xaxis, self.hist, kind='nearest')(x) # return closest matching bin
 
 
  
-if __name__ == "__main__" and True:
+if __name__ == "__main__" and False:
+  # Get data
   apix = pd.read_csv("data/20260105-172323_matched.csv")
   yapix, bins = np.histogram(apix.row_tot[(apix.layer==1)&(apix.chipID==0)&(apix.row==19)&(apix.col==19)], np.arange(0, 4200, 100))
-  model = Model(np.load("cs137hte70m.npy"), bins, np.sum(yapix), spfun=oldbilinear, p0=[2 , 2000 , 22 , -1200])
+  model = Model(np.load("cs137hte70m.npy"), bins, spfun=oldbilinear, p0=[2 , 2000 , 22 , -1200, np.sum(yapix)])
   #model = Model(np.load("cs137hte70m.npy"), bins, np.sum(yapix), spfun=new_smoothly_broken_bilinear, p0=[80, 0.19*50, 2.29*50, 83, 0.04])
+
+  # Second attempt, find chi squared minima by hand
+  #p0 = [2 , 2000 , 22 , -1200, np.sum(yapix)]
+  #factors = np.arange(.2, 5, .1)
+  #chi2 = np.empty((len(p0), len(factors)))
+  #for i in range(len(model.pars)):
+  #  for j, p in enumerate(factors):
+  #    pars = [e for e in p0]
+  #    pars[i] = p0[i]*p
+  #    model(100, *pars) #recompute hist
+  #    chi2[i][j] = np.sum(np.square(yapix - model.hist))
+  #  plt.plot(factors, chi2[i], label=f"{i}")
+  #plt.legend()
+  #plt.grid(True, "both"); plt.show()
+
+  # First attempt at general fit
   yerr = np.sqrt(yapix)
-  plt.errorbar(model.xaxis, yapix, yerr = yerr)
-  plt.plot(model.xaxis, model.hist)
-  plt.grid(True, "both"); plt.show()
-  fitbounds = ([0, 100, 5, -np.inf], [100, np.inf, 50, 0])
+  #plt.errorbar(model.xaxis, yapix, yerr = yerr)
+  #plt.plot(model.xaxis, model.hist)
+  #plt.grid(True, "both"); plt.show()
+  fitbounds = ([1, 1800, 5, -1300, 50], [10, 2400, 50, -720, np.inf])
+  #popt, pcov = curve_fit(model, model.xaxis, yapix, p0=model.pars)
   popt, pcov = curve_fit(model, model.xaxis, yapix, sigma=np.where(yerr<1, 1, yerr), absolute_sigma=True, p0=model.pars, bounds=fitbounds)
   #results = least_squares(lambda params, x, y: y - model(x, *params), model.pars, args=(model.xaxis, yapix))
+  plt.errorbar(model.xaxis, yapix, yerr=yerr)
+  plt.plot(model.xaxis, model.hist)
+  plt.grid(True, "both"); plt.show()
 
   #df = gethits("simulations/Cs137.inc1.id1.sim.gz", geometry)
   #nobb = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)&(df.HTX<.9))]
