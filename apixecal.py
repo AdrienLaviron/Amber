@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from scipy.optimize import curve_fit, least_squares
+from scipy.optimize import curve_fit, least_squares, minimize
 import scipy.stats
 import pandas as pd
 
@@ -143,30 +143,68 @@ if __name__ == "__main__" and False:
   plt.grid(True, "both"); plt.show()
 
 
+class Anchor:
+
+  def __init__(self, energy, ToT, model, number=1, height=1000, spread=100):
+    """
+    Generates triangle-shaped anchors at a given energy
+    """
+    self.shift = 2000
+    self.energy, self.ToT = energy, ToT
+    self.model = model
+    self.number = number
+    self.height, self.spread = height, spread
+    self.__process()
+
+  def __process(self):
+    # x is 0-1 MeV, transformed to ToT space
+    resp = lambda x:  self.model.spfun(x, *self.model.pars[:self.model.nfpars])
+    self.x = resp(np.arange(-self.shift, 5*self.shift))
+    self.x2 = self.x - resp(self.energy) + self.ToT
+    # Define the triangle in energy space and transform it to ToT space
+    y = self.height - np.abs(np.arange(-self.shift, 5*self.shift) - self.energy)*self.height/self.spread
+    self.y = np.where(y<0, 0, y)
+
+  def chi2(self):
+    self.__process()
+    f1 = scipy.interpolate.interp1d(self.x, self.y, kind="linear")
+    f2 = scipy.interpolate.interp1d(self.x2, self.y, kind="linear")
+    totlist = np.arange(100, 1000, 2)
+    return np.sum(np.square(f1(totlist)-f2(totlist)))
+
+
+  def plot(self, *args, **kwargs):
+    plt.plot(self.x, self.y, *args, **kwargs)
+    plt.plot(self.x2, self.y, *args, **kwargs)
+
 
 class Model:
 
-  def __init__(self, data, bins, spfun=oldbilinear, p0=[5/2,3775/2,19,-2328/2, 10, 200, 1013]):
+  def __init__(self, data, bins, spfun=oldbilinear, 
+                p0=[5/2,3775/2,19,-2328/2, 10, 200, 1013], anchors=[(22, 510),(60,750)]):
     """
     :param data: np.array of dim 2xN (keV values, weights)
     :param bins: passed to np.histogram (in ToT space)
     :param spfun: spectral response function (keV -> ToT)
     :param p0: parameters of spfun + number of events, initial guess of spectral fit
+    :param anchors: list of couple (energy, ToT)
     """
     self.data, self.weights = data[0], data[1]
     self.spfun = spfun
     self.nfpars = len(p0)-1
     self.pars = np.array(p0)
     self.bins = bins
+    self.anchors = [Anchor(e, t, self, i+1) for i, (e,t) in enumerate(anchors)]
     self.__computeBeta(self.pars) # fills self.hist
 
-  def show(self, yapix, p=None):
+  def getx(self):
+    return np.hstack([self.xaxis]+[e.x for e in self.anchors])
+
+  def show(self, yapix):
     """
     """
     plt.errorbar(self.xaxis, yapix, yerr=np.sqrt(np.where(yapix<0, 0, yapix)), label="data")
     plt.plot(self.xaxis, self.hist, label="beta")
-    #if p is None: plt.plot(self.xaxis, self(self.xaxis, *self.pars), label="beta + X-rays")
-    #else: plt.plot(self.xaxis, self(self.xaxis, *p), label="beta + X-rays")
     plt.legend()
     plt.grid(True, "both"); plt.show()
 
@@ -177,8 +215,12 @@ class Model:
     """
     self.weights *= pars[-1]/self.weights.sum()
     self.pars = np.array(pars)
-    self.hist, self.bins = np.histogram(self.spfun(self.data, *self.pars[:self.nfpars]), bins=self.bins, weights=self.weights)
+    self.hist, self.bins = np.histogram(self.spfun(np.random.normal(self.data, 3), *self.pars[:self.nfpars]), bins=self.bins, weights=self.weights)
     self.xaxis = .5*(self.bins[:-1]+self.bins[1:])
+
+  def chi2(self, pars, yapix, yerr):
+    self.__computeBeta(pars)#updates model parameters
+    return np.sum([a.chi2() for a in self.anchors])+np.sum(np.square((self.hist-yapix)/yerr))
 
   def __call__(self, x, *pars):
     """
@@ -192,8 +234,41 @@ class Model:
     #sigma31 = self.spfun(31-self.pars[-3], *self.pars[:-3])
     return betay# + self.pars[-2]*scipy.stats.norm.pdf(x, center31, sigma31)#Add 31 keV gaussian in TOT space
 
- 
+
 if __name__ == "__main__" and True:
+  # Get data
+  apix = pd.read_csv("data/20260105-172323_matched.csv")
+  yapix, bins = np.histogram(apix.row_tot[(apix.layer==1)&(apix.chipID==0)&(apix.row==19)&(apix.col==19)], np.arange(0, 2000, 100))
+  yerr = np.sqrt(yapix)
+  yerr = np.where(yerr<1, 1, yerr)
+
+  depths = [50, 60, 70, 80, 90]
+  depths = [70]
+  p0 = [980, 2, 11, 50, .05, 200, np.sum(yapix)]
+  fitbounds = ([10, .1, 1, 30, .03, 180, 50], [1600, 200, 200, 50, 5, 300, 4000])
+
+  for dnumber, depth in enumerate(depths):
+    model=Model(np.load(f"cs137d{depth}m.npy"), bins, spfun=newbilinearsat, p0=p0)
+
+    if True:
+      factors = np.arange(.2, 5, .1)
+      chi2 = np.empty((len(p0), len(factors)))
+      for i in range(len(model.pars)):
+        pars = [e for e in p0]
+        for j, p in enumerate(factors):
+          pars[i] = p0[i]*p
+          chi2[i][j] = model.chi2(pars, yapix, yerr)
+        plt.plot(factors, chi2[i], label=f"{i}")
+      plt.legend()
+      plt.grid(True, "both"); plt.show()
+
+    res = minimize(model.chi2, p0, (yapix, yerr))
+    for a in model.anchors: a.plot()
+    model.show(yapix)
+
+
+
+if __name__ == "__main__" and False:
   # Get data
   apix = pd.read_csv("data/20260105-172323_matched.csv")
   yapix, bins = np.histogram(apix.row_tot[(apix.layer==1)&(apix.chipID==0)&(apix.row==19)&(apix.col==19)], np.arange(0, 4200, 100))
@@ -218,17 +293,18 @@ if __name__ == "__main__" and True:
     model=Model(np.load(f"cs137d{depth}m.npy"), bins, spfun=newbilinearsat, p0=p0)
 
     # Second attempt, find chi squared minima by hand
-    factors = np.arange(.2, 5, .1)
-    chi2 = np.empty((len(p0), len(factors)))
-    for i in range(len(model.pars)):
-      pars = [e for e in p0]
-      for j, p in enumerate(factors):
-        pars[i] = p0[i]*p
-        model(100, *pars) #recompute hist
-        chi2[i][j] = np.sum(np.square(yapix - model(model.xaxis, *model.pars)))
-      plt.plot(factors, chi2[i], label=f"{i}")
-    plt.legend()
-    plt.grid(True, "both"); plt.show()
+    if False:
+      factors = np.arange(.2, 5, .1)
+      chi2 = np.empty((len(p0), len(factors)))
+      for i in range(len(model.pars)):
+        pars = [e for e in p0]
+        for j, p in enumerate(factors):
+          pars[i] = p0[i]*p
+          model(100, *pars) #recompute hist
+          chi2[i][j] = np.sum(np.square(yapix - model(model.xaxis, *model.pars)))
+        plt.plot(factors, chi2[i], label=f"{i}")
+      plt.legend()
+      plt.grid(True, "both"); plt.show()
 
     # First attempt at general fit
     yerr = np.sqrt(yapix)
