@@ -37,9 +37,9 @@ def oldbilinear(x, a, b, c, d):
 
 
 class Anchor:
- """
- Helper class to anchor a keV value at a certain ToT. Not working yet.
- """
+  """
+  Helper class to anchor a keV value at a certain ToT. Not working yet.
+  """
 
   def __init__(self, energy, ToT, model, number=1, height=1000, spread=100):
     """
@@ -136,6 +136,5 @@ class Model:
     #center31 = self.spfun(31, *self.pars[:-3])
     #sigma31 = self.spfun(31-self.pars[-3], *self.pars[:-3])
     return betay# + self.pars[-2]*scipy.stats.norm.pdf(x, center31, sigma31)#Add 31 keV gaussian in TOT space
-
 
 
