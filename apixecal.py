@@ -99,7 +99,8 @@ def gethits(fname, geometry, strategy="all"):
     mce = Event.GetIAAt(0).GetEnergy()
     if strategy == "max":
       elist = [Event.GetHTAt(i).GetEnergy() for i in range(nhits)]
-      add2dict(dfdict, gethitdata(Event.GetHTAt(np.argmax(elist))), mce, nhits)
+      if len(elist)>0:
+        add2dict(dfdict, gethitdata(Event.GetHTAt(int(np.argmax(elist)))), mce, nhits)
     elif strategy == "all":
       for i in range(nhits):
         add2dict(dfdict, gethitdata(Event.GetHTAt(i)), mce, nhits)
@@ -120,15 +121,15 @@ if __name__ == "__main__" and False:
   csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
   data = []; depths = []
   bins = np.arange(0, 1300, 20)
-  flist = glob.glob("simulations/Cs137_*.sim.gz")
+  flist = glob.glob("simulations/Cs137_d*.sim.gz")
   cmap = plt.get_cmap('jet', 200)
   for i, f in enumerate(flist):
     depth = float(".".join(f.split("_d")[-1].split(".")[:2]))*1e4
     print(i, f, depth)
     depths.append(depth)
-    df = gethits(f, geometry)
-    #df = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)&(df.HTX<.9))] # no BusBar
-    df = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))] # With BusBar
+    df = gethits(f, geometry, "max")
+    df = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)&(df.HTX<.9))] # no BusBar
+    #df = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))] # With BusBar
     df["WT"] = csbeta(df["MCE"]*1e-3)
     data.append(df)
     plt.hist(df.HTE, weights=df.WT, bins=bins, histtype='step', color=cmap(int(depth)))
@@ -140,6 +141,62 @@ if __name__ == "__main__" and False:
   plt.colorbar(sm, ticks=np.arange(0, 251, 10), ax=plt.gca(), label="Depletion depth")
   plt.xlabel("Deposited energy (keV)")
   plt.ylabel("# Hits")
+  plt.grid(True, "both"); plt.show()
+
+if __name__ == "__main__" and False:
+  # Init ROOT global variables
+  initroot()
+  # Get geometry
+  geometry = getGeometry("ViewSiPixelDetector.geo.setup")
+  geometry.ActivateNoising(False)
+  # Read simulated data
+  csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
+  data = []; thetas = []
+  bins = np.arange(0, 1300, 20)
+  flist = glob.glob("simulations/Cs137_theta*.sim.gz")
+  cmap = plt.get_cmap('jet', 50)
+  for i, f in enumerate(flist):
+    theta = float(".".join(f.split("_theta")[-1].split(".")[:2]))
+    print(i, f, theta)
+    thetas.append(theta)
+    df = gethits(f, geometry, "max")
+    df = df[((df.HTX>-1.9)&(df.HTX<-1.1))|((df.HTX>.1)&(df.HTX<.9))] # no BusBar
+    #df = df[((df.HTX>-1)&(df.HTX<-.1))|((df.HTX>1)&(df.HTX<1.7))] # With BusBar
+    df["WT"] = csbeta(df["MCE"]*1e-3)
+    data.append(df)
+    plt.hist(df.HTE, weights=df.WT, bins=bins, histtype='step', color=cmap(int(theta)))
+    np.save(f"cs137theta{int(theta)}deg.npy", np.vstack((df.HTE, df.WT)))
+  print(thetas)
+  norm = matplotlib.colors.Normalize(vmin=0,vmax=50)
+  sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+  sm.set_array([])
+  plt.colorbar(sm, ticks=np.arange(0, 51, 5), ax=plt.gca(), label="Off-axis angles")
+  plt.xlabel("Deposited energy (keV)")
+  plt.ylabel("# Hits")
+  plt.grid(True, "both"); plt.show()
+
+
+if __name__ == "__main__" and False:
+  # Init ROOT global variables
+  initroot()
+  # Get geometry
+  geometry = getGeometry("ViewSiPixelDetector.geo.setup")
+  geometry.ActivateNoising(False)
+  # Read simulated data
+  csbeta = Spectrum("spectra/Cs-137_Beta_Spectrum.csv")
+  bins = np.arange(10, 1300, 10)
+  hists = []
+  for s in ["all", "max", "single"]:
+    df = gethits("simulations/Cs137_d0.007.inc1.id1.sim.gz", geometry, s)
+    df["WT"] = csbeta(df["MCE"]*1e-3)
+    hists.append(np.histogram(df.HTE, weights=df.WT, bins=bins)[0])
+    plt.hist(df.HTE, weights=df.WT, bins=bins, histtype="step", label=s)
+  plt.legend()
+  plt.yscale("log")
+  plt.grid(True, "both"); plt.show()
+  x = .5*(bins[:-1]+bins[1:])
+  plt.plot(x, hists[1]/hists[0])
+  plt.plot(x, hists[2]/hists[0])
   plt.grid(True, "both"); plt.show()
 
 
@@ -154,22 +211,22 @@ class Anchor:
     self.model = model
     self.number = number
     self.height, self.spread = height, spread
-    self.__process()
-
-  def __process(self):
-    # x is 0-1 MeV, transformed to ToT space
-    resp = lambda x:  self.model.spfun(x, *self.model.pars[:self.model.nfpars])
-    self.x = resp(np.arange(-self.shift, 5*self.shift))
-    self.x2 = self.x - resp(self.energy) + self.ToT
+    self.__process(self.model.pars)
     # Define the triangle in energy space and transform it to ToT space
     y = self.height - np.abs(np.arange(-self.shift, 5*self.shift) - self.energy)*self.height/self.spread
     self.y = np.where(y<0, 0, y)
 
-  def chi2(self):
-    self.__process()
+  def __process(self, pars):
+    # x is 0-1 MeV, transformed to ToT space
+    resp = lambda x:  self.model.spfun(x, *pars[:self.model.nfpars])
+    self.x = resp(np.arange(-self.shift, 5*self.shift))
+    self.x2 = self.x - resp(self.energy) + self.ToT
+
+  def chi2(self, pars):
+    self.__process(pars)
     f1 = scipy.interpolate.interp1d(self.x, self.y, kind="linear")
     f2 = scipy.interpolate.interp1d(self.x2, self.y, kind="linear")
-    totlist = np.arange(100, 1000, 2)
+    totlist = np.arange(400, 1000, 10)
     return np.sum(np.square(f1(totlist)-f2(totlist)))
 
 
@@ -204,8 +261,9 @@ class Model:
     """
     """
     plt.errorbar(self.xaxis, yapix, yerr=np.sqrt(np.where(yapix<0, 0, yapix)), label="data")
-    plt.plot(self.xaxis, self.hist, label="beta")
+    plt.errorbar(self.xaxis, self.hist, yerr=np.sqrt(self.histerr), label="beta")
     plt.legend()
+    plt.xlim(-200, 2500)
     plt.grid(True, "both"); plt.show()
 
 
@@ -216,11 +274,12 @@ class Model:
     self.weights *= pars[-1]/self.weights.sum()
     self.pars = np.array(pars)
     self.hist, self.bins = np.histogram(self.spfun(np.random.normal(self.data, 3), *self.pars[:self.nfpars]), bins=self.bins, weights=self.weights)
+    self.histerr = np.histogram(self.spfun(np.random.normal(self.data, 3), *self.pars[:self.nfpars]), bins=self.bins, weights=np.square(self.weights))[0]
     self.xaxis = .5*(self.bins[:-1]+self.bins[1:])
 
   def chi2(self, pars, yapix, yerr):
     self.__computeBeta(pars)#updates model parameters
-    return np.sum([a.chi2() for a in self.anchors])+np.sum(np.square((self.hist-yapix)/yerr))
+    return np.sum([a.chi2(pars) for a in self.anchors])+np.sum(np.square((self.hist-yapix)/(yerr*yerr+self.histerr)))
 
   def __call__(self, x, *pars):
     """
@@ -238,19 +297,21 @@ class Model:
 if __name__ == "__main__" and True:
   # Get data
   apix = pd.read_csv("data/20260105-172323_matched.csv")
-  yapix, bins = np.histogram(apix.row_tot[(apix.layer==1)&(apix.chipID==0)&(apix.row==19)&(apix.col==19)], np.arange(0, 2000, 100))
+  yapix, bins = np.histogram(apix.row_tot[(apix.layer==1)&(apix.chipID==0)&(apix.row==19)&(apix.col==19)], np.arange(0, 4000, 100))
   yerr = np.sqrt(yapix)
   yerr = np.where(yerr<1, 1, yerr)
 
-  depths = [50, 60, 70, 80, 90]
-  depths = [70]
-  p0 = [980, 2, 11, 50, .05, 200, np.sum(yapix)]
-  fitbounds = ([10, .1, 1, 30, .03, 180, 50], [1600, 200, 200, 50, 5, 300, 4000])
+if __name__ == "__main__" and False:
+  depths = [50, 70, 90, 110, 130]
+  #depths = [70]
+  p0 = [980, 11, 13, 60, .05, 300, np.sum(yapix)]
+  fitbounds = [(10,1600), (.1, 5), (1, 20), (30, 90), (.003, 5), (180, 300), (50,4000)]
 
   for dnumber, depth in enumerate(depths):
+    print(f"{depth} um")
     model=Model(np.load(f"cs137d{depth}m.npy"), bins, spfun=newbilinearsat, p0=p0)
 
-    if True:
+    if len(depths)<3:
       factors = np.arange(.2, 5, .1)
       chi2 = np.empty((len(p0), len(factors)))
       for i in range(len(model.pars)):
@@ -262,11 +323,29 @@ if __name__ == "__main__" and True:
       plt.legend()
       plt.grid(True, "both"); plt.show()
 
-    res = minimize(model.chi2, p0, (yapix, yerr))
+    res = minimize(model.chi2, p0, args=(yapix, yerr), bounds=fitbounds)
+    print(res.x)
     for a in model.anchors: a.plot()
     model.show(yapix)
 
-
+if __name__ == "__main__" and True:
+  p0 = [980, 5, 13, 50, .05, 300, np.sum(yapix)]
+  model=Model(np.load(f"cs137d70m.npy"), bins, spfun=newbilinearsat, p0=p0)
+  res = minimize(lambda x: model.anchors[0].chi2((980, x[0], x[1], 45, .04, 300, 1100))+model.anchors[1].chi2((980, x[0], x[1], 45, .04, 300, 1100)), (5, 12))
+  #factors = np.array([.2, .5, 1, 2, 5])
+  #for i in range(4):
+  #  print(f"Par. {i}")
+  #  pars = [e for e in p0]
+  #  plt.plot(model.anchors[0].x2, model.anchors[0].y, "C0-")
+  #  plt.plot(model.anchors[1].x2, model.anchors[1].y, "C0--")
+  #  for j, p in enumerate(factors):
+  #    pars[i] = p0[i]*p
+  #    model.chi2(pars, yapix, yerr)
+  #    plt.plot(model.anchors[0].x, model.anchors[0].y, f"C{j+1}-")
+  #    plt.plot(model.anchors[1].x, model.anchors[1].y, f"C{j+1}--")
+  #    #model.show(yapix)
+  #  plt.xlim(-200, 3000)
+  #  plt.grid(True, "both"); plt.show()
 
 if __name__ == "__main__" and False:
   # Get data

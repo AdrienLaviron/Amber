@@ -3,6 +3,8 @@
 Version         1
 Geometry        $PWD/ViewSiPixelDetector.geo.setup
 
+DefaultRangeCut 0.0001
+
 # Physics list
 PhysicsListEM                        Livermore-Pol
 PhysicsListEMActivateFluorescence    true
@@ -17,7 +19,7 @@ DiscretizeHits                        true
 # Run parameters:
 Run ecalsim
 ecalsim.FileName         simulations/Cs137
-ecalsim.NTriggers        30000
+ecalsim.NTriggers        100000
 
 ecalsim.Source      beta
 beta.ParticleType   3

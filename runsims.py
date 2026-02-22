@@ -41,9 +41,14 @@ if __name__ == "__main__":
   parser.add_argument("-c", "--clean", action="store_true", help="Clean temporary source files and simulation files")
   args = parser.parse_args()
   if args.sourcefile is not None:
-    for depth in (np.arange(20)+1)*0.001: # 10 micrometers to 200 micrometers
-      cgGeometry(depth)
-      tmpsrc = cgSimName(args.sourcefile, f"d{depth}")
+    #for depth in (np.arange(20)+1)*0.001: # 10 micrometers to 200 micrometers
+    #  cgGeometry(depth)
+    #  tmpsrc = cgSimName(args.sourcefile, f"d{depth}")
+    #  subprocess.run(["cosima", tmpsrc])
+    cgGeometry(.007)
+    for theta in np.rad2deg(np.arccos(np.arange(1, .7, -.05))):
+      tmpsrc = cgSimName(args.sourcefile, f"theta{theta}")
+      os.system(f"""sed -e "s/^beta.Beam.*/beta.Beam FarFieldPointSource {theta} 0./g" -i {tmpsrc}""")
       subprocess.run(["cosima", tmpsrc])
   if args.clean:
     removewc("tmp/*")
