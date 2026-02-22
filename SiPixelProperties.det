@@ -27,8 +27,8 @@ AstroPix.Offset           0.0 0.0
 AstroPix.StructuralPitch 0 0 1.5
 
 // Pixel Properties
-AstroPix.NoiseThreshold       25 
-AstroPix.TriggerThreshold     25 
+AstroPix.NoiseThreshold       5 
+AstroPix.TriggerThreshold     5 
 
 // Measured values from V2LoResChip
 AstroPix.EnergyResolution Gauss 14.4 14.4 1.47
